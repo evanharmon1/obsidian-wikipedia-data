@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, RequestUrlParam, request } from 'obsidian';
 
 // Remember to rename these classes and interfaces!
 
@@ -11,6 +11,7 @@ interface WikipediaDataSettings {
 interface WikiData {
 	title: string;
 	text: string;
+	description: string;
 	url: string;
 	image: string;
 }
@@ -18,7 +19,7 @@ interface WikiData {
 const extractApiUrl = "wikipedia.org/api/rest_v1/page/summary/";
 
 const DEFAULT_SETTINGS: WikipediaDataSettings = {
-	template: `{{text}}\n> [Wikipedia]({{url}})`,
+    template: `![image | 100]({{image}}))\nwikipedia:: [{{title}}]({{url}})\n> {{text}}`,
 	shouldBoldSearchTerm: true,
 	language: "en",
 }
@@ -31,20 +32,64 @@ export default class WikipediaData extends Plugin {
 	}
 
 	getUrl(title: string): string {
-	return `https://${this.getLanguage()}.wikipedia.org/wiki/${encodeURI(
-		title
-	)}`;
+        return `https://${this.getLanguage()}.wikipedia.org/wiki/${encodeURI(title)}`;
 	}
 	
 	getApiUrl(): string {
-	return `https://${this.getLanguage()}.` + extractApiUrl;
+        return `https://${this.getLanguage()}.` + extractApiUrl;
 	}
 
-	async getWikipediaText(title: string): Promise<WikipediaExtract | undefined> {
+	handleNotFound(searchTerm: string) {
+		new Notice(`${searchTerm} not found on Wikipedia.`);
+	}
+
+	parseResponse(json: any): WikiData | undefined {
+		console.log(json);
+		console.log(json.title);
+		if (json.title == "The page you requested doesn't exist") {
+            return undefined;
+		}
+		const wikiData: WikiData = {
+			title: json.title,
+			text: json.extract,
+			description: json.description,
+			url: json.content_urls.desktop.page,
+			image: json.thumbnail.source
+        };
+        console.log("Parse Response wiki data");
+        console.log(wikiData);
+        return wikiData;
+	  }
+
+    formatWikiDataText(wikiData: WikiData, searchTerm: string): string {
+    let formattedText: string = wikiData.text;
+    if (this.settings.shouldBoldSearchTerm) {
+        const pattern = new RegExp(searchTerm, "i");
+        formattedText = formattedText.replace(pattern, `**${searchTerm}**`);
+    }
+    return formattedText;
+    }
+    
+    formatExtractInsert(wikiData: WikiData, searchTerm: string): string {
+    const formattedText = this.formatWikiDataText(wikiData, searchTerm);
+    const template = this.settings.template;
+    const formattedTemplate = template
+        .replace("{{text}}", formattedText)
+        .replace("{{title}}", wikiData.title)
+        .replace("{{url}}", wikiData.url)
+        .replace("{{image}}", wikiData.image);
+    return formattedTemplate;
+    }
+
+	async getWikiData(title: string): Promise<WikiData | undefined> {
 		const url = this.getApiUrl() + encodeURIComponent(title);
-		const requestParam: RequestParam = {
+		const requestParam: RequestUrlParam = {
 			url: url,
 		};
+        console.log("url");
+        console.log(url);
+        console.log("requestParam");
+        console.log(requestParam);
 		const resp = await request(requestParam)
 			.then((r) => JSON.parse(r))
 			.catch(
@@ -53,40 +98,64 @@ export default class WikipediaData extends Plugin {
 					"Failed to get Wikipedia. Check your internet connection or language prefix."
 					)
 			);
-		const extract = this.parseResponse(resp);
-		return extract;
+		console.log("resp");
+		console.log(resp);
+		const wikiData = this.parseResponse(resp);
+		return wikiData;
+	}
+
+	async pasteIntoEditor(editor: Editor, searchTerm: string) {
+		let testing = "EVAN";
+        let testing2 = this.getWikiData(searchTerm);
+		console.log(testing2);
+        console.log("type of");
+        console.log(typeof testing2);
+        let apiResp: WikiData = await this.getWikiData(searchTerm) as WikiData;
+		if (!apiResp) {
+			this.handleNotFound(searchTerm);
+			return;
+		}
+		editor.replaceSelection(this.formatExtractInsert(apiResp, searchTerm));
+	}
+
+	async getWikipediaDataForActiveFile(editor: Editor) {
+		const activeFile = await this.app.workspace.getActiveFile();
+		if (activeFile) {
+			const searchTerm = activeFile.basename;
+			if (searchTerm) {
+				await this.pasteIntoEditor(editor, searchTerm);
+			}
+		}
 	}
 
 	async onload() {
 		console.log("Loading Wikipedia data plugin");
 		await this.loadSettings();
-
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
+		
+        this.addCommand({
+            id: "get-data-for-active-note-title",
+            name: "Get Wikipedia Data for Active Note Title",
+            editorCallback: (editor: Editor) =>
+              this.getWikipediaDataForActiveFile(editor),
+          });
+		
 		this.addSettingTab(new WikipediaDataSettingTab(this.app, this));
+		
 
 	}
 
-	onunload() {
-
-	}
-
+    
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+	}
+    
+	async saveSettings() {
+        await this.saveData(this.settings);
 	}
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+    onunload() {
+    }
+
 }
 
 class WikipediaDataSettingTab extends PluginSettingTab {
@@ -103,56 +172,45 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+			.setName("Wikipedia Language Prefix")
+			.setDesc(`Choose Wikipedia language prefix to use (ex. en for English)`)
+			.addText((textField) => {
+				textField
+				.setValue(this.plugin.settings.language)
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.language = value;
 					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-		.setName("Wikipedia Language Prefix")
-		.setDesc(`Choose Wikipedia language prefix to use (ex. en for English)`)
-		.addText((textField) => {
-			textField
-			.setValue(this.plugin.settings.language)
-			.onChange(async (value) => {
-				this.plugin.settings.language = value;
-				await this.plugin.saveSettings();
+				});
 			});
-		});
 
 		new Setting(containerEl)
-		.setName("Wikipedia Extract Template")
-		.setDesc(
-			`Set markdown template for extract to be inserted.\n
-			Available template variables are {{text}}, {{searchTerm}} and {{url}}.
-			`
-		)
-		.addTextArea((textarea) =>
-			textarea
-			.setValue(this.plugin.settings.template)
-			.onChange(async (value) => {
-				this.plugin.settings.template = value;
-				await this.plugin.saveSettings();
-			})
-		);
+			.setName("Wikipedia Extract Template")
+			.setDesc(
+				`Set markdown template for extract to be inserted.\n
+				Available template variables are {{text}}, {{searchTerm}} and {{url}}.
+				`
+			)
+			.addTextArea((textarea) =>
+				textarea
+				.setValue(this.plugin.settings.template)
+				.onChange(async (value) => {
+					this.plugin.settings.template = value;
+					await this.plugin.saveSettings();
+				})
+			);
 
 		new Setting(containerEl)
-		.setName("Bold Search Term?")
-		.setDesc(
-			"If set to true, the first instance of the search term will be **bolded**"
-		)
-		.addToggle((toggle) =>
-			toggle
-			.setValue(this.plugin.settings.shouldBoldSearchTerm)
-			.onChange(async (value) => {
-				this.plugin.settings.shouldBoldSearchTerm = value;
-				await this.plugin.saveSettings();
-			})
-		);
+			.setName("Bold Search Term?")
+			.setDesc(
+				"If set to true, the first instance of the search term will be **bolded**"
+			)
+			.addToggle((toggle) =>
+				toggle
+				.setValue(this.plugin.settings.shouldBoldSearchTerm)
+				.onChange(async (value) => {
+					this.plugin.settings.shouldBoldSearchTerm = value;
+					await this.plugin.saveSettings();
+				})
+			);
 	}
 }
