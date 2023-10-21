@@ -1,9 +1,8 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, RequestUrlParam, request } from 'obsidian';
 
-// Remember to rename these classes and interfaces!
-
 interface WikipediaDataSettings {
 	template: string;
+    thumbnailTemplate: string;
 	shouldBoldSearchTerm: boolean;
 	language: string;
 }
@@ -13,13 +12,14 @@ interface WikiData {
 	text: string;
 	description: string;
 	url: string;
-	image: string;
+	thumbnailUrl: string;
 }
 
 const extractApiUrl = "wikipedia.org/api/rest_v1/page/summary/";
 
 const DEFAULT_SETTINGS: WikipediaDataSettings = {
-    template: `![image | 100]({{image}}))\nwikipedia:: [{{title}}]({{url}})\n> {{text}}`,
+    template: `wikipedia:: [{{title}}]({{url}})\n> {{text}}`,
+    thumbnailTemplate: `![thumbnail | 100]({{thumbnaillUrl}})`,
 	shouldBoldSearchTerm: true,
 	language: "en",
 }
@@ -46,17 +46,24 @@ export default class WikipediaData extends Plugin {
 	parseResponse(json: any): WikiData | undefined {
 		console.log(json);
 		console.log(json.title);
+		console.log("EVAN");
 		if (json.title == "The page you requested doesn't exist") {
             return undefined;
 		}
+		if (json.hasOwnProperty("thumbnail")) {
+            console.log("has thumbnail");
+		}
+        else {
+            console.log("no thumbnail");
+        }
 		const wikiData: WikiData = {
 			title: json.title,
 			text: json.extract,
 			description: json.description,
 			url: json.content_urls.desktop.page,
-			image: json.thumbnail.source
+			thumbnailUrl: (json.hasOwnProperty("thumbnail")) ? json.thumbnail.source : ""
         };
-        console.log("Parse Response wiki data");
+        console.log("Parse Response wiki data EVAN");
         console.log(wikiData);
         return wikiData;
 	  }
@@ -77,7 +84,7 @@ export default class WikipediaData extends Plugin {
         .replace("{{text}}", formattedText)
         .replace("{{title}}", wikiData.title)
         .replace("{{url}}", wikiData.url)
-        .replace("{{image}}", wikiData.image);
+        .replace("{{thumbnailUrl}}", wikiData.thumbnailUrl);
     return formattedTemplate;
     }
 
@@ -105,7 +112,6 @@ export default class WikipediaData extends Plugin {
 	}
 
 	async pasteIntoEditor(editor: Editor, searchTerm: string) {
-		let testing = "EVAN";
         let testing2 = this.getWikiData(searchTerm);
 		console.log(testing2);
         console.log("type of");
