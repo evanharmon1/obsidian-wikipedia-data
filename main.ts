@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, RequestUrlParam, request } from 'obsidian';
+import { App, Editor, Notice, Plugin, PluginSettingTab, Setting, RequestUrlParam, request } from 'obsidian';
 
 interface WikipediaDataSettings {
 	template: string;
@@ -8,9 +8,10 @@ interface WikipediaDataSettings {
 }
 
 interface WikiData {
+	type: string;
 	title: string;
-	text: string;
 	description: string;
+	text: string;
 	url: string;
 	thumbnailUrl: string;
 }
@@ -18,8 +19,8 @@ interface WikiData {
 const extractApiUrl = "wikipedia.org/api/rest_v1/page/summary/";
 
 const DEFAULT_SETTINGS: WikipediaDataSettings = {
-    template: `wikipedia:: [{{title}}]({{url}})\n> {{text}}`,
-    thumbnailTemplate: `![thumbnail | 100]({{thumbnaillUrl}})`,
+    template: `| {{thumbnailTemplate}} | {{text}} |\n|-|-|\n`,
+    thumbnailTemplate: `![thumbnail \| 100]({{thumbnailUrl}})`,
 	shouldBoldSearchTerm: true,
 	language: "en",
 }
@@ -43,60 +44,62 @@ export default class WikipediaData extends Plugin {
 		new Notice(`${searchTerm} not found on Wikipedia.`);
 	}
 
+	handleDisambiguation(searchTerm: string, disambiguationUrl: string) {
+		let linkElement = document.createElement("a");
+		linkElement.innerHTML = `${searchTerm} Disambiguation Page\n`;
+		linkElement.href = `${disambiguationUrl}`;
+		let fragment = new DocumentFragment;
+		fragment.appendChild(linkElement);
+		new Notice(`${searchTerm} returned a disambiguation page.`, 10000)
+		new Notice(fragment, 10000);
+	}
+
+    formatWikiDataText(wikiData: WikiData, searchTerm: string): string {
+		let formattedText: string = wikiData.text;
+		if (this.settings.shouldBoldSearchTerm) {
+			const pattern = new RegExp(searchTerm, "i");
+			formattedText = formattedText.replace(pattern, `**${searchTerm}**`);
+		}
+		return formattedText;
+	}
+		
+	formatExtractInsert(wikiData: WikiData, searchTerm: string): string {
+		const formattedText = this.formatWikiDataText(wikiData, searchTerm);
+		const template = this.settings.template;
+		let thumbnailTemplate = "";
+		if (wikiData.thumbnailUrl === "" ) {
+			thumbnailTemplate = "replaceThumbnail";
+		}
+		else {
+			thumbnailTemplate = this.settings.thumbnailTemplate;
+		}
+		const formattedTemplate = template
+			.replace("{{text}}", formattedText)
+			.replace("{{title}}", wikiData.title)
+			.replace("{{url}}", wikiData.url)
+			.replace("{{thumbnailTemplate}}", thumbnailTemplate)
+			.replace("{{thumbnailUrl}}", wikiData.thumbnailUrl)
+			.replace("replaceThumbnail", "");
+		return formattedTemplate;
+	}
+
 	parseResponse(json: any): WikiData | undefined {
-		console.log(json);
-		console.log(json.title);
-		console.log("EVAN");
-		if (json.title == "The page you requested doesn't exist") {
-            return undefined;
-		}
-		if (json.hasOwnProperty("thumbnail")) {
-            console.log("has thumbnail");
-		}
-        else {
-            console.log("no thumbnail");
-        }
 		const wikiData: WikiData = {
+			type: json.type,
 			title: json.title,
 			text: json.extract,
 			description: json.description,
 			url: json.content_urls.desktop.page,
 			thumbnailUrl: (json.hasOwnProperty("thumbnail")) ? json.thumbnail.source : ""
         };
-        console.log("Parse Response wiki data EVAN");
-        console.log(wikiData);
         return wikiData;
-	  }
-
-    formatWikiDataText(wikiData: WikiData, searchTerm: string): string {
-    let formattedText: string = wikiData.text;
-    if (this.settings.shouldBoldSearchTerm) {
-        const pattern = new RegExp(searchTerm, "i");
-        formattedText = formattedText.replace(pattern, `**${searchTerm}**`);
-    }
-    return formattedText;
-    }
-    
-    formatExtractInsert(wikiData: WikiData, searchTerm: string): string {
-    const formattedText = this.formatWikiDataText(wikiData, searchTerm);
-    const template = this.settings.template;
-    const formattedTemplate = template
-        .replace("{{text}}", formattedText)
-        .replace("{{title}}", wikiData.title)
-        .replace("{{url}}", wikiData.url)
-        .replace("{{thumbnailUrl}}", wikiData.thumbnailUrl);
-    return formattedTemplate;
-    }
+	}
 
 	async getWikiData(title: string): Promise<WikiData | undefined> {
 		const url = this.getApiUrl() + encodeURIComponent(title);
 		const requestParam: RequestUrlParam = {
 			url: url,
 		};
-        console.log("url");
-        console.log(url);
-        console.log("requestParam");
-        console.log(requestParam);
 		const resp = await request(requestParam)
 			.then((r) => JSON.parse(r))
 			.catch(
@@ -105,23 +108,28 @@ export default class WikipediaData extends Plugin {
 					"Failed to get Wikipedia. Check your internet connection or language prefix."
 					)
 			);
-		console.log("resp");
-		console.log(resp);
 		const wikiData = this.parseResponse(resp);
 		return wikiData;
 	}
 
 	async pasteIntoEditor(editor: Editor, searchTerm: string) {
-        let testing2 = this.getWikiData(searchTerm);
-		console.log(testing2);
-        console.log("type of");
-        console.log(typeof testing2);
-        let apiResp: WikiData = await this.getWikiData(searchTerm) as WikiData;
-		if (!apiResp) {
+        let apiResponse: WikiData = await this.getWikiData(searchTerm) as WikiData;
+		console.log("API Response");
+		console.log(apiResponse);
+		if (!apiResponse) {
 			this.handleNotFound(searchTerm);
 			return;
 		}
-		editor.replaceSelection(this.formatExtractInsert(apiResp, searchTerm));
+		else if (apiResponse.type.contains("missingtitle")) {
+			this.handleNotFound(searchTerm);
+		}
+		else if (apiResponse.type == "disambiguation") {
+			this.handleDisambiguation(searchTerm, apiResponse.url);
+			return;
+		}
+		else {
+			editor.replaceSelection(this.formatExtractInsert(apiResponse, searchTerm));
+		}
 	}
 
 	async getWikipediaDataForActiveFile(editor: Editor) {
@@ -135,22 +143,18 @@ export default class WikipediaData extends Plugin {
 	}
 
 	async onload() {
-		console.log("Loading Wikipedia data plugin");
+		console.log("Loading Wikipedia Data Plugin");
 		await this.loadSettings();
 		
         this.addCommand({
             id: "get-data-for-active-note-title",
             name: "Get Wikipedia Data for Active Note Title",
-            editorCallback: (editor: Editor) =>
-              this.getWikipediaDataForActiveFile(editor),
-          });
+            editorCallback: (editor: Editor) => this.getWikipediaDataForActiveFile(editor),
+        });
 		
 		this.addSettingTab(new WikipediaDataSettingTab(this.app, this));
-		
-
 	}
 
-    
 	async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -179,7 +183,7 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Wikipedia Language Prefix")
-			.setDesc(`Choose Wikipedia language prefix to use (ex. en for English)`)
+			.setDesc(`Choose Wikipedia language prefix to use for API (ex. en for English)`)
 			.addText((textField) => {
 				textField
 				.setValue(this.plugin.settings.language)
@@ -190,10 +194,10 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Wikipedia Extract Template")
+			.setName("Wikipedia Data Template")
 			.setDesc(
-				`Set markdown template for extract to be inserted.\n
-				Available template variables are {{text}}, {{searchTerm}} and {{url}}.
+				`Set markdown template for data from the Wikipedia API to be inserted.\n
+				Available template variables are {{text}} (Short explanation of 1 or 2 sentences), {{title}}, {{url}} (of the Wikipedia page), {{thumbnailTemplate}} (inserts the Wikipedia Thumbnail Template defined below), and {{description}} (shorter, simpler description).
 				`
 			)
 			.addTextArea((textarea) =>
@@ -201,6 +205,20 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.template)
 				.onChange(async (value) => {
 					this.plugin.settings.template = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Wikipedia Thumbnail Template")
+			.setDesc(
+				`Set markdown template for what will be inserted in the 'thumbnailTemplate' variable above. Use the {{thumbnailUrl}} here.`
+			)
+			.addTextArea((textarea) =>
+				textarea
+				.setValue(this.plugin.settings.thumbnailTemplate)
+				.onChange(async (value) => {
+					this.plugin.settings.thumbnailTemplate = value;
 					await this.plugin.saveSettings();
 				})
 			);
