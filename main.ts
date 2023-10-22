@@ -20,7 +20,7 @@ const extractApiUrl = "wikipedia.org/api/rest_v1/page/summary/";
 
 const DEFAULT_SETTINGS: WikipediaDataSettings = {
     template: `| {{thumbnailTemplate}} | {{text}} |\n|-|-|\n`,
-    thumbnailTemplate: `![thumbnail \| 100]({{thumbnailUrl}})`,
+    thumbnailTemplate: `![thumbnail \\| 100]({{thumbnailUrl}})`,
 	shouldBoldSearchTerm: true,
 	language: "en",
 }

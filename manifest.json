@@ -6,6 +6,5 @@
 	"description": "Query Wikipedia APIs and insert data with template variables.",
 	"author": "Evan Harmon",
 	"authorUrl": "https://www.evanharmon.com",
-	"fundingUrl": "https://www.evanharmon.com",
 	"isDesktopOnly": false
 }
