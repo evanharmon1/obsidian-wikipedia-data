@@ -182,7 +182,7 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("Wikipedia Language Prefix")
+			.setName("Wikipedia language prefix")
 			.setDesc(`Choose Wikipedia language prefix to use for API (ex. en for English)`)
 			.addText((textField) => {
 				textField
@@ -194,7 +194,7 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Wikipedia Data Template")
+			.setName("Wikipedia template")
 			.setDesc(
 				`Set markdown template for data from the Wikipedia API to be inserted.\n
 				Available template variables are {{text}} (Short explanation of 1 or 2 sentences), {{title}}, {{url}} (of the Wikipedia page), {{thumbnailTemplate}} (inserts the Wikipedia Thumbnail Template defined below), and {{description}} (shorter, simpler description).
@@ -210,7 +210,7 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Wikipedia Thumbnail Template")
+			.setName("Wikipedia thumbnail template")
 			.setDesc(
 				`Set markdown template for what will be inserted in the 'thumbnailTemplate' variable above. Use the {{thumbnailUrl}} here.`
 			)
@@ -224,7 +224,7 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Bold Search Term?")
+			.setName("Bold search term?")
 			.setDesc(
 				"If set to true, the first instance of the search term will be **bolded**"
 			)
