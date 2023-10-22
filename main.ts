@@ -96,7 +96,7 @@ export default class WikipediaData extends Plugin {
 	}
 
 	async getWikiData(title: string): Promise<WikiData | undefined> {
-		const url = this.getApiUrl() + encodeURIComponent(title);
+		const url = this.getApiUrl() + encodeURIComponent(title.toLowerCase());
 		const requestParam: RequestUrlParam = {
 			url: url,
 		};
