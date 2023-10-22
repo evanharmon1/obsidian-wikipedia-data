@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-		"install": "npm run build && cp main.js ~/Local/Memex/.obsidian/plugins/obsidian-wikipedia-data/ && cp manifest.json ~/Local/Memex/.obsidian/plugins/obsidian-wikipedia-data/",
+		"installPlugin": "npm run build && cp main.js $obsidianVault/.obsidian/plugins/obsidian-wikipedia-data/ && cp manifest.json $obsidianVault/.obsidian/plugins/obsidian-wikipedia-data/",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],
