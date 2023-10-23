@@ -1,12 +1,12 @@
 {
 	"name": "obsidian-wikipedia-data",
 	"version": "1.0.0",
-	"description": "Query Wikipedia APIs and insert data with template variables.",
+	"description": "Query Wikipedia APIs and insert data with custom templates and variables.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
-		"installPlugin": "npm run build && cp main.js $obsidianVault/.obsidian/plugins/obsidian-wikipedia-data/ && cp manifest.json $obsidianVault/.obsidian/plugins/obsidian-wikipedia-data/",
+		"installPlugin": "npm run build && mkdir $obsidianVault/.obsidian/plugins/obsidian-wikipedia-data ; cp {main.js,manifest.json} $obsidianVault/.obsidian/plugins/obsidian-wikipedia-data/",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],

@@ -44,7 +44,7 @@ const DEFAULT_SETTINGS: WikipediaDataSettings = {
     template: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n| | wikipedia:: [{{title}}]({{url}}) |\n> [!summary]- Wikipedia Synopsis\n{{introText}}\n`,
 	thumbnailTemplate: `![img \\|150]({{thumbnailUrl}})`,
 	useParagraphTemplate: true,
-    paragraphTemplate: `> {{paragraphText}}`,
+    paragraphTemplate: `> {{paragraphText}}\n>\n`,
 }
 
 export default class WikipediaData extends Plugin {
