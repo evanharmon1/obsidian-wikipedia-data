@@ -1,13 +1,16 @@
 import { App, Editor, Notice, Plugin, PluginSettingTab, Setting, RequestUrlParam, request } from 'obsidian';
 
 interface WikipediaDataSettings {
-	template: string;
-    thumbnailTemplate: string;
-	shouldBoldSearchTerm: boolean;
 	language: string;
+	shouldBoldSearchTerm: boolean;
+	template: string;
+	thumbnailTemplate: string;
+	useParagraphTemplate: boolean;
+    paragraphTemplate: string;
 }
 
-interface WikiData {
+// Object for response from wikimediaApiUrlBase
+interface WikimediaData {
 	type: string;
 	title: string;
 	description: string;
@@ -16,7 +19,9 @@ interface WikiData {
 	thumbnailUrl: string;
 }
 
+// Object for response from mediaWikiApiUrlBase
 interface WikiSearch {
+	resultCount: number;
 	id: number;
 	key: string;
 	title: string;
@@ -24,14 +29,22 @@ interface WikiSearch {
 	thumbnailUrl: string;
 }
 
+// Object for response from mediaWikiActionApiUrlBase
+interface WikiText {
+	fullText: string;
+}
+
 const wikimediaApiUrlBase = "wikipedia.org/api/rest_v1/";
 const mediaWikiApiUrlBase = "wikipedia.org/w/rest.php/v1/";
+const mediaWikiActionApiUrlBase = "wikipedia.org/w/api.php";
 
 const DEFAULT_SETTINGS: WikipediaDataSettings = {
-    template: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n`,
-    thumbnailTemplate: `![thumbnail \\| 100]({{thumbnailUrl}})`,
-	shouldBoldSearchTerm: true,
 	language: "en",
+	shouldBoldSearchTerm: true,
+    template: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n| | wikipedia:: [{{title}}]({{url}}) |\n> [!summary]- Wikipedia Synopsis\n{{introText}}\n`,
+	thumbnailTemplate: `![img \\|150]({{thumbnailUrl}})`,
+	useParagraphTemplate: true,
+    paragraphTemplate: `> {{paragraphText}}`,
 }
 
 export default class WikipediaData extends Plugin {
@@ -53,12 +66,17 @@ export default class WikipediaData extends Plugin {
 		return `https://${this.getLanguage()}.` + mediaWikiApiUrlBase + `search/title?q=`
 	}
 
+	getMediaWikiActionApiUrl(): string {
+		return `https://${this.getLanguage()}.` + mediaWikiActionApiUrlBase + `?format=json&action=query&prop=extracts&explaintext=1&redirects&origin=*&pageids=`
+	}
+
 	handleNotFound(searchTerm: string) {
 		new Notice(`${searchTerm} not found on Wikipedia.`);
 	}
 
 	handleDisambiguation(searchTerm: string, disambiguationUrl: string) {
 		// TODO: Use Obsidian DOM API instead of innerHTML?
+		// Create DOM element to put a URL in the Obisidan Notice for the user to be able to open that Wikipedia disambiguation page.
 		let linkElement = document.createElement("a");
 		linkElement.innerHTML = `${searchTerm} Disambiguation Page\n`;
 		linkElement.href = `${disambiguationUrl}`;
@@ -68,9 +86,10 @@ export default class WikipediaData extends Plugin {
 		new Notice(fragment, 10000);
 	}
 
-    formatWikiDataSummary(wikiData: WikiData, searchTerm: string): string {
+	// Remove the occassional \n chars to make WikimediaData.summary always be one line.
+    formatWikimediaDataSummary(wikimediaData: WikimediaData, searchTerm: string): string {
 		const regex = /\n/g;
-		let formattedSummary: string = wikiData.summary.trim().replace(regex, " ");
+		let formattedSummary: string = wikimediaData.summary.trim().replace(regex, " ");
 		if (this.settings.shouldBoldSearchTerm) {
 			const pattern = new RegExp(searchTerm, "i");
 			formattedSummary = formattedSummary.replace(pattern, `**${searchTerm}**`);
@@ -78,30 +97,55 @@ export default class WikipediaData extends Plugin {
 		return formattedSummary;
 	}
 
-	formatTemplate(wikiSearch: WikiSearch, wikiData: WikiData, searchTerm: string): string {
-		const formattedWikiDataSummary = this.formatWikiDataSummary(wikiData, searchTerm);
+	// Split WikiText.fullText into paragraphs, extract just the intro section, and apply paragraphTemplate to each paragraph.
+	formatWikiIntroText(wikiText: WikiText, searchTerm: string): string {
+		const text = wikiText.fullText;
+		let formattedText: string = "";
+		if (this.settings.useParagraphTemplate) {
+		  const split = text.split("==")[0].trim().split("\n");
+		  formattedText = split
+			.map((paragraph) =>
+			  this.settings.paragraphTemplate.replace(
+				"{{paragraphText}}",
+				paragraph
+			  )
+			)
+			.join("")
+			.trim();
+		} else {
+		  formattedText = text.split("==")[0].trim();
+		}
+		if (this.settings.shouldBoldSearchTerm) {
+		  const pattern = new RegExp(searchTerm, "i");
+		  formattedText = formattedText.replace(pattern, `**${searchTerm}**`);
+		}
+		return formattedText;
+	  }
+	// Build final template to be inserted into note and apply template variables.
+	formatTemplate(wikiSearch: WikiSearch, wikimediaData: WikimediaData, wikiText: WikiText, searchTerm: string): string {
+		const formattedWikimediaDataSummary = this.formatWikimediaDataSummary(wikimediaData, searchTerm);
+		const introText = this.formatWikiIntroText(wikiText, searchTerm);
 		const template = this.settings.template;
 		let thumbnailTemplate = "";
-		if (wikiData.thumbnailUrl === "" ) {
-			thumbnailTemplate = "replaceThumbnail";
-		}
-		else {
+		// If no thumbnailUrl, don't insert thumbnailTemplate
+		if (wikimediaData.thumbnailUrl !== "" ) {
 			thumbnailTemplate = this.settings.thumbnailTemplate;
 		}
 		const formattedTemplate = template
-			.replace("{{summary}}", formattedWikiDataSummary)
-			.replace("{{title}}", wikiData.title)
-			.replace("{{url}}", wikiData.url)
+			.replace("{{title}}", wikimediaData.title)
+			.replace("{{url}}", wikimediaData.url)
 			.replace("{{thumbnailTemplate}}", thumbnailTemplate)
-			.replace("{{thumbnailUrl}}", wikiData.thumbnailUrl)
+			.replace("{{thumbnailUrl}}", wikimediaData.thumbnailUrl)
+			.replace("{{description}}", wikimediaData.description)
+			.replace("{{summary}}", formattedWikimediaDataSummary)
+			.replace("{{introText}}", introText)
 			.replace("{{id}}", wikiSearch.id.toString())
 			.replace("{{key}}", wikiSearch.key)
-			.replace("replaceThumbnail", "");
 		return formattedTemplate;
 	}
 
-	parseDataResponse(json: any): WikiData | undefined {
-		const wikiData: WikiData = {
+	parseDataResponse(json: any): WikimediaData | undefined {
+		const wikimediaData: WikimediaData = {
 			type: json.type,
 			title: json.title,
 			summary: json.extract,
@@ -109,11 +153,12 @@ export default class WikipediaData extends Plugin {
 			url: json.content_urls.desktop.page,
 			thumbnailUrl: (json.hasOwnProperty("thumbnail")) ? json.thumbnail.source : ""
         };
-        return wikiData;
+        return wikimediaData;
 	}
 
-	parseSearchResponse(json: any): WikiSearch | undefined {
+	parseSearchResponse(json: any): WikiSearch | undefined {;
 		const wikiSearch: WikiSearch = {
+			resultCount: json.pages.length,
 			id: json.pages[0].id,
 			key: json.pages[0].key,
 			title: json.pages[0].title,
@@ -123,7 +168,14 @@ export default class WikipediaData extends Plugin {
         return wikiSearch;
 	}
 
-	async getWikiData(title: string): Promise<WikiData | undefined> {
+	parseTextResponse(json: any, id: number): WikiText | undefined {
+		const wikiText: WikiText = {
+			fullText: json.query.pages[id.toString()].extract
+        };
+        return wikiText;
+	}
+
+	async getWikimediaData(title: string): Promise<WikimediaData | undefined> {
 		const url = this.getWikimediaApiUrl() + encodeURIComponent(title);
 		const requestParam: RequestUrlParam = {
 			url: url,
@@ -136,8 +188,8 @@ export default class WikipediaData extends Plugin {
 					"Failed to reach Wikimedia API for article data. Check your search term, internet connection, or language prefix."
 					)
 			);
-		const wikiData = this.parseDataResponse(resp);
-		return wikiData;
+		const wikimediaData = this.parseDataResponse(resp);
+		return wikimediaData;
 	}
 
 	async getWikiSearch(searchTerm: string): Promise<WikiSearch | undefined> {
@@ -157,23 +209,42 @@ export default class WikipediaData extends Plugin {
 		return wikiSearch;
 	}
 
+	async getWikiText(id: number): Promise<WikiText | undefined> {
+		const url = this.getMediaWikiActionApiUrl() + encodeURIComponent(id.toString());
+		const requestParam: RequestUrlParam = {
+			url: url,
+		};
+		const resp = await request(requestParam)
+			.then((r) => JSON.parse(r))
+			.catch(
+				() =>
+					new Notice(
+					"Failed to reach MediaWiki Action API for article text. Check your search term, internet connection, or language prefix."
+					)
+			);
+		const wikiText = this.parseTextResponse(resp, id);
+		return wikiText;
+	}
+
 	async pasteIntoEditor(editor: Editor, searchTerm: string) {
-		// TODO: Fix typing here that needs as WikiSearch and as WikiData
+		// TODO: Fix typing here that needs as WikiSearch and as WikimediaData.
 		let wikiSearch: WikiSearch = await this.getWikiSearch(searchTerm) as WikiSearch;
-        let wikiData: WikiData = await this.getWikiData(wikiSearch.title) as WikiData;
-		if (!wikiData) {
+        let wikimediaData: WikimediaData = await this.getWikimediaData(wikiSearch.title) as WikimediaData;
+        let wikiText: WikiText = await this.getWikiText(wikiSearch.id) as WikiText;
+		if (!wikiSearch) {
 			this.handleNotFound(searchTerm);
 			return;
 		}
-		else if (wikiData.type.contains("missingtitle")) {
+		else if (wikimediaData.type.contains("missingtitle") || wikiSearch.resultCount == 0 ) {
 			this.handleNotFound(searchTerm);
+			return;
 		}
-		else if (wikiData.type == "disambiguation") {
-			this.handleDisambiguation(searchTerm, wikiData.url);
+		else if (wikimediaData.type == "disambiguation" || wikiSearch.description == "Topics referred to by the same term") {
+			this.handleDisambiguation(searchTerm, wikimediaData.url);
 			return;
 		}
 		else {
-			editor.replaceSelection(this.formatTemplate(wikiSearch, wikiData, searchTerm));
+			editor.replaceSelection(this.formatTemplate(wikiSearch, wikimediaData, wikiText, searchTerm));
 		}
 	}
 
@@ -239,36 +310,6 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Wikipedia template")
-			// TODO: I should probably not bother with nesting templates and just have one template that handles the thumbnail part.
-			.setDesc(
-				`Set markdown template for data from the Wikipedia API to be inserted.\n
-				Available template variables are {{title}}, {{url}} (of the Wikipedia page), {{summary}} (Short textual explanation of the article in 1 or a few sentences), {{description}} (shorter, simpler description of the article), {{id}}, {{key}}, and {{thumbnailTemplate}} (inserts the Wikipedia Thumbnail Template defined below).`
-			)
-			.addTextArea((textarea) =>
-				textarea
-				.setValue(this.plugin.settings.template)
-				.onChange(async (value) => {
-					this.plugin.settings.template = value;
-					await this.plugin.saveSettings();
-				})
-			);
-
-		new Setting(containerEl)
-			.setName("Wikipedia thumbnail template")
-			.setDesc(
-				`Set markdown template for what will be inserted in the 'thumbnailTemplate' variable above. Use the {{thumbnailUrl}} here.`
-			)
-			.addTextArea((textarea) =>
-				textarea
-				.setValue(this.plugin.settings.thumbnailTemplate)
-				.onChange(async (value) => {
-					this.plugin.settings.thumbnailTemplate = value;
-					await this.plugin.saveSettings();
-				})
-			);
-
-		new Setting(containerEl)
 			.setName("Bold search term?")
 			.setDesc(
 				"If set to true, the first instance of the search term will be **bolded**"
@@ -281,5 +322,64 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				})
 			);
+
+		new Setting(containerEl)
+			.setName("Wikipedia template")
+			// TODO: I should probably not bother with nesting templates and just have one template that handles the thumbnail part.
+			.setDesc(
+				`Set the template for what data from Wikipedia will be inserted.\n
+				Available template variables are:\n{{title}}\n{{url}} (of the Wikipedia page)\n{{summary}} (Short textual explanation of the article in 1 or a few sentences)\n{{description}} (shorter, simpler description of the article)\n{{introText}} (The first intro section of a Wikipedia article - usually longer than the summary, sometimes up to a few paragraphs)\n{{id}} (article page id)\n{{key}}\n{{thumbnailTemplate}} (inserts the Wikipedia Thumbnail Template defined below)\n{{thumbnailUrl}} (although normally would just be used inside the thumbnailTemplate below).`
+			)
+			.addTextArea((textarea) =>
+				textarea
+				.setValue(this.plugin.settings.template)
+				.onChange(async (value) => {
+					this.plugin.settings.template = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Thumbnail template")
+			.setDesc(
+				`Set the thumbnail template for what will be inserted in the \`thumbnailTemplate\` variable within the Wikipedia template above. If Wikipedia does not return a thumbnail image, this template will not be inserted.\nUse the \`{{thumbnailUrl}}\` variable here.`
+			)
+			.addTextArea((textarea) =>
+				textarea
+				.setValue(this.plugin.settings.thumbnailTemplate)
+				.onChange(async (value) => {
+					this.plugin.settings.thumbnailTemplate = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Use paragraph template?")
+			.setDesc(
+				"If set to true, you can customize how each paragraph from the introText template variable is formatted."
+			)
+			.addToggle((toggle) =>
+				toggle
+				.setValue(this.plugin.settings.useParagraphTemplate)
+				.onChange(async (value) => {
+					this.plugin.settings.useParagraphTemplate = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("Paragraph template")
+			.setDesc(
+				`Set the template for how each paragraph in the \`introText\` template variable will be displayed when inserted in the Wikipedia template above.\nUse the \`{{paragraphText}}\` variable here.`
+			)
+			.addTextArea((textarea) =>
+				textarea
+				.setValue(this.plugin.settings.paragraphTemplate)
+				.onChange(async (value) => {
+					this.plugin.settings.paragraphTemplate = value;
+					await this.plugin.saveSettings();
+				})
+			);
+
 	}
 }
