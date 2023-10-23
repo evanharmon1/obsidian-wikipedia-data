@@ -11,15 +11,24 @@ interface WikiData {
 	type: string;
 	title: string;
 	description: string;
-	text: string;
+	summary: string;
 	url: string;
 	thumbnailUrl: string;
 }
 
-const extractApiUrl = "wikipedia.org/api/rest_v1/page/summary/";
+interface WikiSearch {
+	id: number;
+	key: string;
+	title: string;
+	description: string;
+	thumbnailUrl: string;
+}
+
+const wikimediaApiUrlBase = "wikipedia.org/api/rest_v1/";
+const mediaWikiApiUrlBase = "wikipedia.org/w/rest.php/v1/";
 
 const DEFAULT_SETTINGS: WikipediaDataSettings = {
-    template: `| {{thumbnailTemplate}} | {{text}} |\n|-|-|\n`,
+    template: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n`,
     thumbnailTemplate: `![thumbnail \\| 100]({{thumbnailUrl}})`,
 	shouldBoldSearchTerm: true,
 	language: "en",
@@ -36,8 +45,12 @@ export default class WikipediaData extends Plugin {
         return `https://${this.getLanguage()}.wikipedia.org/wiki/${encodeURI(title)}`;
 	}
 	
-	getApiUrl(): string {
-        return `https://${this.getLanguage()}.` + extractApiUrl;
+	getWikimediaApiUrl(): string {
+        return `https://${this.getLanguage()}.` + wikimediaApiUrlBase + `page/summary/`;
+	}
+
+	getMediaWikiApiUrl(): string {
+		return `https://${this.getLanguage()}.` + mediaWikiApiUrlBase + `search/title?q=`
 	}
 
 	handleNotFound(searchTerm: string) {
@@ -45,6 +58,7 @@ export default class WikipediaData extends Plugin {
 	}
 
 	handleDisambiguation(searchTerm: string, disambiguationUrl: string) {
+		// TODO: Use Obsidian DOM API instead of innerHTML?
 		let linkElement = document.createElement("a");
 		linkElement.innerHTML = `${searchTerm} Disambiguation Page\n`;
 		linkElement.href = `${disambiguationUrl}`;
@@ -54,17 +68,18 @@ export default class WikipediaData extends Plugin {
 		new Notice(fragment, 10000);
 	}
 
-    formatWikiDataText(wikiData: WikiData, searchTerm: string): string {
-		let formattedText: string = wikiData.text;
+    formatWikiDataSummary(wikiData: WikiData, searchTerm: string): string {
+		const regex = /\n/g;
+		let formattedSummary: string = wikiData.summary.trim().replace(regex, " ");
 		if (this.settings.shouldBoldSearchTerm) {
 			const pattern = new RegExp(searchTerm, "i");
-			formattedText = formattedText.replace(pattern, `**${searchTerm}**`);
+			formattedSummary = formattedSummary.replace(pattern, `**${searchTerm}**`);
 		}
-		return formattedText;
+		return formattedSummary;
 	}
-		
-	formatExtractInsert(wikiData: WikiData, searchTerm: string): string {
-		const formattedText = this.formatWikiDataText(wikiData, searchTerm);
+
+	formatTemplate(wikiSearch: WikiSearch, wikiData: WikiData, searchTerm: string): string {
+		const formattedWikiDataSummary = this.formatWikiDataSummary(wikiData, searchTerm);
 		const template = this.settings.template;
 		let thumbnailTemplate = "";
 		if (wikiData.thumbnailUrl === "" ) {
@@ -74,20 +89,22 @@ export default class WikipediaData extends Plugin {
 			thumbnailTemplate = this.settings.thumbnailTemplate;
 		}
 		const formattedTemplate = template
-			.replace("{{text}}", formattedText)
+			.replace("{{summary}}", formattedWikiDataSummary)
 			.replace("{{title}}", wikiData.title)
 			.replace("{{url}}", wikiData.url)
 			.replace("{{thumbnailTemplate}}", thumbnailTemplate)
 			.replace("{{thumbnailUrl}}", wikiData.thumbnailUrl)
+			.replace("{{id}}", wikiSearch.id.toString())
+			.replace("{{key}}", wikiSearch.key)
 			.replace("replaceThumbnail", "");
 		return formattedTemplate;
 	}
 
-	parseResponse(json: any): WikiData | undefined {
+	parseDataResponse(json: any): WikiData | undefined {
 		const wikiData: WikiData = {
 			type: json.type,
 			title: json.title,
-			text: json.extract,
+			summary: json.extract,
 			description: json.description,
 			url: json.content_urls.desktop.page,
 			thumbnailUrl: (json.hasOwnProperty("thumbnail")) ? json.thumbnail.source : ""
@@ -95,8 +112,19 @@ export default class WikipediaData extends Plugin {
         return wikiData;
 	}
 
+	parseSearchResponse(json: any): WikiSearch | undefined {
+		const wikiSearch: WikiSearch = {
+			id: json.pages[0].id,
+			key: json.pages[0].key,
+			title: json.pages[0].title,
+			description: json.pages[0].description,
+			thumbnailUrl: json.pages[0].thumbnailUrl
+        };
+        return wikiSearch;
+	}
+
 	async getWikiData(title: string): Promise<WikiData | undefined> {
-		const url = this.getApiUrl() + encodeURIComponent(title.toLowerCase());
+		const url = this.getWikimediaApiUrl() + encodeURIComponent(title);
 		const requestParam: RequestUrlParam = {
 			url: url,
 		};
@@ -105,30 +133,47 @@ export default class WikipediaData extends Plugin {
 			.catch(
 				() =>
 					new Notice(
-					"Failed to get Wikipedia. Check your internet connection or language prefix."
+					"Failed to reach Wikimedia API for article data. Check your search term, internet connection, or language prefix."
 					)
 			);
-		const wikiData = this.parseResponse(resp);
+		const wikiData = this.parseDataResponse(resp);
 		return wikiData;
 	}
 
+	async getWikiSearch(searchTerm: string): Promise<WikiSearch | undefined> {
+		const url = this.getMediaWikiApiUrl() + encodeURIComponent(searchTerm) + "&limit=5";
+		const requestParam: RequestUrlParam = {
+			url: url,
+		};
+		const resp = await request(requestParam)
+			.then((r) => JSON.parse(r))
+			.catch(
+				() =>
+					new Notice(
+					"Failed to reach MediaWiki API for article title. Check your search term, internet connection, or language prefix."
+					)
+			);
+		const wikiSearch = this.parseSearchResponse(resp);
+		return wikiSearch;
+	}
+
 	async pasteIntoEditor(editor: Editor, searchTerm: string) {
-        let apiResponse: WikiData = await this.getWikiData(searchTerm) as WikiData;
-		console.log("API Response");
-		console.log(apiResponse);
-		if (!apiResponse) {
+		// TODO: Fix typing here that needs as WikiSearch and as WikiData
+		let wikiSearch: WikiSearch = await this.getWikiSearch(searchTerm) as WikiSearch;
+        let wikiData: WikiData = await this.getWikiData(wikiSearch.title) as WikiData;
+		if (!wikiData) {
 			this.handleNotFound(searchTerm);
 			return;
 		}
-		else if (apiResponse.type.contains("missingtitle")) {
+		else if (wikiData.type.contains("missingtitle")) {
 			this.handleNotFound(searchTerm);
 		}
-		else if (apiResponse.type == "disambiguation") {
-			this.handleDisambiguation(searchTerm, apiResponse.url);
+		else if (wikiData.type == "disambiguation") {
+			this.handleDisambiguation(searchTerm, wikiData.url);
 			return;
 		}
 		else {
-			editor.replaceSelection(this.formatExtractInsert(apiResponse, searchTerm));
+			editor.replaceSelection(this.formatTemplate(wikiSearch, wikiData, searchTerm));
 		}
 	}
 
@@ -195,10 +240,10 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Wikipedia template")
+			// TODO: I should probably not bother with nesting templates and just have one template that handles the thumbnail part.
 			.setDesc(
 				`Set markdown template for data from the Wikipedia API to be inserted.\n
-				Available template variables are {{text}} (Short explanation of 1 or 2 sentences), {{title}}, {{url}} (of the Wikipedia page), {{thumbnailTemplate}} (inserts the Wikipedia Thumbnail Template defined below), and {{description}} (shorter, simpler description).
-				`
+				Available template variables are {{title}}, {{url}} (of the Wikipedia page), {{summary}} (Short textual explanation of the article in 1 or a few sentences), {{description}} (shorter, simpler description of the article), {{id}}, {{key}}, and {{thumbnailTemplate}} (inserts the Wikipedia Thumbnail Template defined below).`
 			)
 			.addTextArea((textarea) =>
 				textarea
