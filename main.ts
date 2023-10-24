@@ -145,6 +145,10 @@ export default class WikipediaData extends Plugin {
 			const pattern = new RegExp(searchTerm, "i");
 			formattedText = formattedText.replace(pattern, `**${searchTerm}**`);
 		}
+		// Handle paragraphTemplate edge case where there is an unwanted trailing '>'
+		if (formattedText.charAt(formattedText.length - 1) === ">") {
+			formattedText = formattedText.slice(0, formattedText.length - 2)
+		}
 		return formattedText;
 	}
 
