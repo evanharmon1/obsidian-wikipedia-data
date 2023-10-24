@@ -152,7 +152,7 @@ export default class WikipediaData extends Plugin {
 	formatTemplate(wikiSearch: WikiSearch, wikimediaData: WikimediaData, wikiText: WikiText, searchTerm: string, wikipediaTemplateNum: number): string {
 		const formattedWikimediaDataSummary = this.formatWikimediaDataSummary(wikimediaData, searchTerm);
 		const introText = this.formatWikiIntroText(wikiText, searchTerm);
-		const template = this.settings.wikipediaTemplates[wikipediaTemplateNum].value;
+		const template = this.settings.wikipediaTemplates[wikipediaTemplateNum - 1].value;
 		let thumbnailTemplate = "";
 		// If no thumbnailUrl, don't insert thumbnailTemplate
 		if (wikimediaData.thumbnailUrl !== "" ) {
@@ -338,7 +338,7 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Wikipedia language prefix")
-			.setDesc(`Choose Wikipedia language prefix to use for API (ex. en for English)`)
+			.setDesc(`Choose Wikipedia language prefix to use for API (e.g, 'en' for English)`)
 			.addText((textField) => {
 				textField
 				.setValue(this.plugin.settings.language)
@@ -390,7 +390,7 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 				" - Longer explanation, sometimes multiple paragraphs - the first intro section of a Wikipedia article.",
 				desc.createEl("br"),
 				desc.createEl("strong", { text: "{{id}}" }),
-				" - page id of the Wikipedia page. E.g, '17741",
+				" - page id of the Wikipedia page. E.g, '17741'.",
 				desc.createEl("br"),
 				desc.createEl("strong", { text: "{{key}}" }),
 				" - Key of the Wikipedia page. E.g, 'Ludwig_Wittgenstein'.",
@@ -399,7 +399,7 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 				" - Inserts the Wikipedia 'Thumbnail template' defined below.",
 				desc.createEl("br"),
 				desc.createEl("strong", { text: "{{thumbnailUrl}}" }),
-				" - Inserts the url of the article's thumbnail image (if it has one). (Normally one would only use this variable inside the 'Thumbnail template' below, although you can use it in the 'Wikipedia templates'."
+				" - Inserts the url of the article's thumbnail image (if it has one). (Normally one would only use this variable inside the 'Thumbnail template' below, although you can use it directly in the 'Wikipedia templates' as well."
 		);
 
 		new Setting(this.containerEl).setDesc(desc);
