@@ -3,10 +3,17 @@ import { App, Editor, Notice, Plugin, PluginSettingTab, Setting, RequestUrlParam
 interface WikipediaDataSettings {
 	language: string;
 	shouldBoldSearchTerm: boolean;
-	template: string;
+	wikipediaTemplates: WikipediaTemplate[];
 	thumbnailTemplate: string;
 	useParagraphTemplate: boolean;
     paragraphTemplate: string;
+}
+
+interface WikipediaTemplate {
+	key: number,
+	name: string;
+	description: string;
+	value: string;
 }
 
 // Object for response from wikimediaApiUrlBase
@@ -20,6 +27,7 @@ interface WikimediaData {
 }
 
 // Object for response from mediaWikiApiUrlBase
+// TODO: Rename based on the best name for this API
 interface WikiSearch {
 	resultCount: number;
 	id: number;
@@ -30,6 +38,7 @@ interface WikiSearch {
 }
 
 // Object for response from mediaWikiActionApiUrlBase
+// TODO: Rename based on the best name for this API
 interface WikiText {
 	fullText: string;
 }
@@ -38,13 +47,34 @@ const wikimediaApiUrlBase = "wikipedia.org/api/rest_v1/";
 const mediaWikiApiUrlBase = "wikipedia.org/w/rest.php/v1/";
 const mediaWikiActionApiUrlBase = "wikipedia.org/w/api.php";
 
+const defaultWikipediaTemplateOne: WikipediaTemplate = {
+	key: 1,
+	name: "Wikipedia template #1",
+	description: `Set the template to be inserted with the main command - 'Apply Template #1 for Active Note Title'.`,
+	value: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n| | wikipedia:: [{{title}}]({{url}}) |\n> [!summary]- Wikipedia Synopsis\n{{introText}}\n`
+}
+
+const defaultWikipediaTemplateTwo: WikipediaTemplate = {
+	key: 2,
+	name: "Wikipedia template #2",
+	description: `Set the template to be inserted with the second command - 'Apply Template #2 for Active Note Title'.`,
+	value: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n| | wikipedia:: [{{title}}]({{url}}) |\n> [!summary]- Wikipedia Synopsis\n{{introText}}\n`
+}
+
+const defaultWikipediaTemplateThree: WikipediaTemplate = {
+	key: 3,
+	name: "Wikipedia template #3",
+	description: `Set the template to be inserted with the third command - 'Apply Template #3 for Active Note Title'.`,
+	value: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n| | wikipedia:: [{{title}}]({{url}}) |\n> [!summary]- Wikipedia Synopsis\n{{introText}}\n`
+}
+
 const DEFAULT_SETTINGS: WikipediaDataSettings = {
 	language: "en",
 	shouldBoldSearchTerm: true,
-    template: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n| | wikipedia:: [{{title}}]({{url}}) |\n> [!summary]- Wikipedia Synopsis\n{{introText}}\n`,
+	wikipediaTemplates: [defaultWikipediaTemplateOne, defaultWikipediaTemplateTwo, defaultWikipediaTemplateThree],
 	thumbnailTemplate: `![img \\|150]({{thumbnailUrl}})`,
 	useParagraphTemplate: true,
-    paragraphTemplate: `> {{paragraphText}}\n>\n`,
+	paragraphTemplate: `> {{paragraphText}}\n>\n`,
 }
 
 export default class WikipediaData extends Plugin {
@@ -52,10 +82,6 @@ export default class WikipediaData extends Plugin {
 
 	getLanguage(): string {
 		return this.settings.language ? this.settings.language : "en";
-	}
-
-	getUrl(title: string): string {
-        return `https://${this.getLanguage()}.wikipedia.org/wiki/${encodeURI(title)}`;
 	}
 	
 	getWikimediaApiUrl(): string {
@@ -102,30 +128,31 @@ export default class WikipediaData extends Plugin {
 		const text = wikiText.fullText;
 		let formattedText: string = "";
 		if (this.settings.useParagraphTemplate) {
-		  const split = text.split("==")[0].trim().split("\n");
-		  formattedText = split
-			.map((paragraph) =>
-			  this.settings.paragraphTemplate.replace(
-				"{{paragraphText}}",
-				paragraph
-			  )
-			)
-			.join("")
-			.trim();
+			const split = text.split("==")[0].trim().split("\n");
+			formattedText = split
+				.map((paragraph) =>
+					this.settings.paragraphTemplate.replace(
+						"{{paragraphText}}",
+						paragraph
+					)
+				)
+				.join("")
+				.trim();
 		} else {
-		  formattedText = text.split("==")[0].trim();
+			formattedText = text.split("==")[0].trim();
 		}
 		if (this.settings.shouldBoldSearchTerm) {
-		  const pattern = new RegExp(searchTerm, "i");
-		  formattedText = formattedText.replace(pattern, `**${searchTerm}**`);
+			const pattern = new RegExp(searchTerm, "i");
+			formattedText = formattedText.replace(pattern, `**${searchTerm}**`);
 		}
 		return formattedText;
-	  }
+	}
+
 	// Build final template to be inserted into note and apply template variables.
-	formatTemplate(wikiSearch: WikiSearch, wikimediaData: WikimediaData, wikiText: WikiText, searchTerm: string): string {
+	formatTemplate(wikiSearch: WikiSearch, wikimediaData: WikimediaData, wikiText: WikiText, searchTerm: string, wikipediaTemplateNum: number): string {
 		const formattedWikimediaDataSummary = this.formatWikimediaDataSummary(wikimediaData, searchTerm);
 		const introText = this.formatWikiIntroText(wikiText, searchTerm);
-		const template = this.settings.template;
+		const template = this.settings.wikipediaTemplates[wikipediaTemplateNum].value;
 		let thumbnailTemplate = "";
 		// If no thumbnailUrl, don't insert thumbnailTemplate
 		if (wikimediaData.thumbnailUrl !== "" ) {
@@ -226,7 +253,7 @@ export default class WikipediaData extends Plugin {
 		return wikiText;
 	}
 
-	async pasteIntoEditor(editor: Editor, searchTerm: string) {
+	async pasteIntoEditor(editor: Editor, searchTerm: string, wikipediaTemplateNum: number) {
 		// TODO: Fix typing here that needs as WikiSearch and as WikimediaData.
 		let wikiSearch: WikiSearch = await this.getWikiSearch(searchTerm) as WikiSearch;
         let wikimediaData: WikimediaData = await this.getWikimediaData(wikiSearch.title) as WikimediaData;
@@ -244,16 +271,16 @@ export default class WikipediaData extends Plugin {
 			return;
 		}
 		else {
-			editor.replaceSelection(this.formatTemplate(wikiSearch, wikimediaData, wikiText, searchTerm));
+			editor.replaceSelection(this.formatTemplate(wikiSearch, wikimediaData, wikiText, searchTerm, wikipediaTemplateNum));
 		}
 	}
 
-	async getWikipediaDataForActiveFile(editor: Editor) {
+	async applyTemplateForActiveNote(editor: Editor, wikipediaTemplateNum: number) {
 		const activeFile = await this.app.workspace.getActiveFile();
 		if (activeFile) {
 			const searchTerm = activeFile.basename;
 			if (searchTerm) {
-				await this.pasteIntoEditor(editor, searchTerm);
+				await this.pasteIntoEditor(editor, searchTerm, wikipediaTemplateNum);
 			}
 		}
 	}
@@ -261,13 +288,25 @@ export default class WikipediaData extends Plugin {
 	async onload() {
 		console.log("Loading Wikipedia Data Plugin");
 		await this.loadSettings();
-		
+
         this.addCommand({
-            id: "get-data-for-active-note-title",
-            name: "Get Wikipedia Data for Active Note Title",
-            editorCallback: (editor: Editor) => this.getWikipediaDataForActiveFile(editor),
+            id: "apply-template-one-for-active-note",
+            name: "Apply Template #1 for Active Note Title",
+            editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 1),
         });
 		
+        this.addCommand({
+            id: "apply-template-two-for-active-note",
+            name: "Apply Template #2 for Active Note Title",
+            editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 2),
+        });
+		
+        this.addCommand({
+            id: "apply-template-three-for-active-note",
+            name: "Apply Template #3 for Active Note Title",
+            editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 3),
+        });
+
 		this.addSettingTab(new WikipediaDataSettingTab(this.app, this));
 	}
 
@@ -323,40 +362,110 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 				})
 			);
 
+		this.containerEl.createEl("h1", { text: "Templates" });
+
+		const desc = document.createDocumentFragment();
+		desc.append(
+				"Define the templates for what data from Wikipedia will be inserted into your active Obsidian note.",
+				desc.createEl("br"),
+				desc.createEl("br"),
+				"If you just need one template corresponding to one command, you don't need to worry about the extra numbered templates below (Wikipedia template #2...). The extra numbered templates apply only if you want multiple unique templates in order to apply them in different situations. Each numbered template corresponds to the extra numbered plugin commands. So, e.g., 'Wikipedia template #2' gets applied via the 'Apply Template #2 for Active Note Title' command, etc.",
+				desc.createEl("br"),
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "Available template variables are:" }),
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "{{title}}" }),
+				" - Wikipedia page title. E.g, 'Ludwig Wittgenstein'.",
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "{{url}}" }),
+				" - URL of the Wikipedia page",
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "{{description}}" }),
+				" - Short, simple description of the article. Usually just a short fragment. E.g, 'Austrian philosopher and logician (1889–1951)'.",
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "{{summary}}" }),
+				" - Medium length explanation of the article in 1 or a few sentences. E.g, 'Ludwig Josef Johann Wittgenstein was an Austrian philosopher who worked primarily in logic, the philosophy of mathematics, the philosophy of mind, and the philosophy of language.'.",
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "{{introText}}" }),
+				" - Longer explanation, sometimes multiple paragraphs - the first intro section of a Wikipedia article.",
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "{{id}}" }),
+				" - page id of the Wikipedia page. E.g, '17741",
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "{{key}}" }),
+				" - Key of the Wikipedia page. E.g, 'Ludwig_Wittgenstein'.",
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "{{thumbnailTemplate}}" }),
+				" - Inserts the Wikipedia 'Thumbnail template' defined below.",
+				desc.createEl("br"),
+				desc.createEl("strong", { text: "{{thumbnailUrl}}" }),
+				" - Inserts the url of the article's thumbnail image (if it has one). (Normally one would only use this variable inside the 'Thumbnail template' below, although you can use it in the 'Wikipedia templates'."
+		);
+
+		new Setting(this.containerEl).setDesc(desc);
+		
 		new Setting(containerEl)
-			.setName("Wikipedia template")
-			// TODO: I should probably not bother with nesting templates and just have one template that handles the thumbnail part.
-			.setDesc(
-				`Set the template for what data from Wikipedia will be inserted.\n
-				Available template variables are:\n{{title}}\n{{url}} (of the Wikipedia page)\n{{summary}} (Short textual explanation of the article in 1 or a few sentences)\n{{description}} (shorter, simpler description of the article)\n{{introText}} (The first intro section of a Wikipedia article - usually longer than the summary, sometimes up to a few paragraphs)\n{{id}} (article page id)\n{{key}}\n{{thumbnailTemplate}} (inserts the Wikipedia Thumbnail Template defined below)\n{{thumbnailUrl}} (although normally would just be used inside the thumbnailTemplate below).`
-			)
-			.addTextArea((textarea) =>
+			.setName(this.plugin.settings.wikipediaTemplates[0].name)
+			.setDesc(this.plugin.settings.wikipediaTemplates[0].description)
+			.addTextArea((textarea) => {
 				textarea
-				.setValue(this.plugin.settings.template)
+				.setValue(this.plugin.settings.wikipediaTemplates[0].value)
 				.onChange(async (value) => {
-					this.plugin.settings.template = value;
+					this.plugin.settings.wikipediaTemplates[0].value = value;
 					await this.plugin.saveSettings();
 				})
-			);
+				textarea.inputEl.rows = 10;
+				textarea.inputEl.cols = 40;
+			});
+
+		new Setting(containerEl)
+			.setName(this.plugin.settings.wikipediaTemplates[1].name)
+			.setDesc(this.plugin.settings.wikipediaTemplates[1].description)
+			.addTextArea((textarea) => {
+				textarea
+				.setValue(this.plugin.settings.wikipediaTemplates[1].value)
+				.onChange(async (value) => {
+					this.plugin.settings.wikipediaTemplates[1].value = value;
+					await this.plugin.saveSettings();
+				})
+				textarea.inputEl.rows = 10;
+				textarea.inputEl.cols = 40;
+			});
+
+		new Setting(containerEl)
+			.setName(this.plugin.settings.wikipediaTemplates[2].name)
+			.setDesc(this.plugin.settings.wikipediaTemplates[2].description)
+			.addTextArea((textarea) => {
+				textarea
+				.setValue(this.plugin.settings.wikipediaTemplates[2].value)
+				.onChange(async (value) => {
+					this.plugin.settings.wikipediaTemplates[2].value = value;
+					await this.plugin.saveSettings();
+				})
+				textarea.inputEl.rows = 10;
+				textarea.inputEl.cols = 40;
+			});
 
 		new Setting(containerEl)
 			.setName("Thumbnail template")
 			.setDesc(
-				`Set the thumbnail template for what will be inserted in the \`thumbnailTemplate\` variable within the Wikipedia template above. If Wikipedia does not return a thumbnail image, this template will not be inserted.\nUse the \`{{thumbnailUrl}}\` variable here.`
+				`Set the thumbnail template for what will be inserted with the 'thumbnailTemplate' variable within the above Wikipedia templates. If Wikipedia does not return a thumbnail image, this template will not be inserted. Use the '{{thumbnailUrl}}' variable here.`
 			)
-			.addTextArea((textarea) =>
+			.addTextArea((textarea) => {
 				textarea
 				.setValue(this.plugin.settings.thumbnailTemplate)
 				.onChange(async (value) => {
 					this.plugin.settings.thumbnailTemplate = value;
 					await this.plugin.saveSettings();
 				})
-			);
+				textarea.inputEl.rows = 5;
+				textarea.inputEl.cols = 40;
+			});
 
 		new Setting(containerEl)
 			.setName("Use paragraph template?")
 			.setDesc(
-				"If set to true, you can customize how each paragraph from the introText template variable is formatted."
+				"If set to true, you can customize how each paragraph from the 'introText' template variable is formatted in the 'Paragraph template' below."
 			)
 			.addToggle((toggle) =>
 				toggle
@@ -370,16 +479,18 @@ class WikipediaDataSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Paragraph template")
 			.setDesc(
-				`Set the template for how each paragraph in the \`introText\` template variable will be displayed when inserted in the Wikipedia template above.\nUse the \`{{paragraphText}}\` variable here.`
+				`Set the paragraph template for how each paragraph in the 'introText' template variable will be displayed when inserted in the Wikipedia templates above. Use the '{{paragraphText}} variable here.`
 			)
-			.addTextArea((textarea) =>
+			.addTextArea((textarea) => {
 				textarea
 				.setValue(this.plugin.settings.paragraphTemplate)
 				.onChange(async (value) => {
 					this.plugin.settings.paragraphTemplate = value;
 					await this.plugin.saveSettings();
 				})
-			);
+				textarea.inputEl.rows = 5;
+				textarea.inputEl.cols = 40;
+			});
 
 	}
 }
