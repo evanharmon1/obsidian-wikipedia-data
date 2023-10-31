@@ -16,8 +16,7 @@ interface WikipediaTemplate {
 	value: string;
 }
 
-// Object for response from wikimediaApiUrlBase
-interface WikimediaData {
+interface WikimediaApiResponse {
 	type: string;
 	title: string;
 	description: string;
@@ -26,9 +25,7 @@ interface WikimediaData {
 	thumbnailUrl: string;
 }
 
-// Object for response from mediaWikiApiUrlBase
-// TODO: Rename based on the best name for this API
-interface WikiSearch {
+interface MediaWikiApiResponse {
 	resultCount: number;
 	id: number;
 	key: string;
@@ -37,9 +34,7 @@ interface WikiSearch {
 	thumbnailUrl: string;
 }
 
-// Object for response from mediaWikiActionApiUrlBase
-// TODO: Rename based on the best name for this API
-interface WikiText {
+interface MediaWikiActionApiResponse {
 	fullText: string;
 }
 
@@ -113,9 +108,9 @@ export default class WikipediaData extends Plugin {
 	}
 
 	// Remove the occassional \n chars to make WikimediaData.summary always be one line.
-    formatWikimediaDataSummary(wikimediaData: WikimediaData, searchTerm: string): string {
+    formatWikimediaApiSummary(wikimediaApiResponse: WikimediaApiResponse, searchTerm: string): string {
 		const regex = /\n/g;
-		let formattedSummary: string = wikimediaData.summary.trim().replace(regex, " ");
+		let formattedSummary: string = wikimediaApiResponse.summary.trim().replace(regex, " ");
 		if (this.settings.shouldBoldSearchTerm) {
 			const pattern = new RegExp(searchTerm, "i");
 			formattedSummary = formattedSummary.replace(pattern, `**${searchTerm}**`);
@@ -124,8 +119,8 @@ export default class WikipediaData extends Plugin {
 	}
 
 	// Split WikiText.fullText into paragraphs, extract just the intro section, and apply paragraphTemplate to each paragraph.
-	formatWikiIntroText(wikiText: WikiText, searchTerm: string): string {
-		const text = wikiText.fullText;
+	formatMediaWikiActionApiIntroText(mediaWikiActionApiResponse: MediaWikiActionApiResponse, searchTerm: string): string {
+		const text = mediaWikiActionApiResponse.fullText;
 		let formattedText: string = "";
 		if (this.settings.useParagraphTemplate) {
 			const split = text.split("==")[0].trim().split("\n");
@@ -153,30 +148,30 @@ export default class WikipediaData extends Plugin {
 	}
 
 	// Build final template to be inserted into note and apply template variables.
-	formatTemplate(wikiSearch: WikiSearch, wikimediaData: WikimediaData, wikiText: WikiText, searchTerm: string, wikipediaTemplateNum: number): string {
-		const formattedWikimediaDataSummary = this.formatWikimediaDataSummary(wikimediaData, searchTerm);
-		const introText = this.formatWikiIntroText(wikiText, searchTerm);
+	formatTemplate(mediaWikiApiResponse: MediaWikiApiResponse, wikimediaApiResponse: WikimediaApiResponse, mediaWikiActionApiResponse: MediaWikiActionApiResponse, searchTerm: string, wikipediaTemplateNum: number): string {
+		const formattedSummary = this.formatWikimediaApiSummary(wikimediaApiResponse, searchTerm);
+		const formattedIntroText = this.formatMediaWikiActionApiIntroText(mediaWikiActionApiResponse, searchTerm);
 		const template = this.settings.wikipediaTemplates[wikipediaTemplateNum - 1].value;
 		let thumbnailTemplate = "";
 		// If no thumbnailUrl, don't insert thumbnailTemplate
-		if (wikimediaData.thumbnailUrl !== "" ) {
+		if (wikimediaApiResponse.thumbnailUrl !== "" ) {
 			thumbnailTemplate = this.settings.thumbnailTemplate;
 		}
 		const formattedTemplate = template
-			.replace("{{title}}", wikimediaData.title)
-			.replace("{{url}}", wikimediaData.url)
+			.replace("{{title}}", wikimediaApiResponse.title)
+			.replace("{{url}}", wikimediaApiResponse.url)
 			.replace("{{thumbnailTemplate}}", thumbnailTemplate)
-			.replace("{{thumbnailUrl}}", wikimediaData.thumbnailUrl)
-			.replace("{{description}}", wikimediaData.description)
-			.replace("{{summary}}", formattedWikimediaDataSummary)
-			.replace("{{introText}}", introText)
-			.replace("{{id}}", wikiSearch.id.toString())
-			.replace("{{key}}", wikiSearch.key)
+			.replace("{{thumbnailUrl}}", wikimediaApiResponse.thumbnailUrl)
+			.replace("{{description}}", wikimediaApiResponse.description)
+			.replace("{{summary}}", formattedSummary)
+			.replace("{{introText}}", formattedIntroText)
+			.replace("{{id}}", mediaWikiApiResponse.id.toString())
+			.replace("{{key}}", mediaWikiApiResponse.key)
 		return formattedTemplate;
 	}
 
-	parseDataResponse(json: any): WikimediaData | undefined {
-		const wikimediaData: WikimediaData = {
+	parseWikimediaApiResponse(json: any): WikimediaApiResponse | undefined {
+		const parsedWikimediaApiResponse: WikimediaApiResponse = {
 			type: json.type,
 			title: json.title,
 			summary: json.extract,
@@ -184,11 +179,11 @@ export default class WikipediaData extends Plugin {
 			url: json.content_urls.desktop.page,
 			thumbnailUrl: (json.hasOwnProperty("thumbnail")) ? json.thumbnail.source : ""
         };
-        return wikimediaData;
+        return parsedWikimediaApiResponse;
 	}
 
-	parseSearchResponse(json: any): WikiSearch | undefined {;
-		const wikiSearch: WikiSearch = {
+	parseMediaWikiApiResponse(json: any): MediaWikiApiResponse | undefined {;
+		const parsedMediaWikiApiResponse: MediaWikiApiResponse = {
 			resultCount: json.pages.length,
 			id: json.pages[0].id,
 			key: json.pages[0].key,
@@ -196,17 +191,17 @@ export default class WikipediaData extends Plugin {
 			description: json.pages[0].description,
 			thumbnailUrl: json.pages[0].thumbnailUrl
         };
-        return wikiSearch;
+        return parsedMediaWikiApiResponse;
 	}
 
-	parseTextResponse(json: any, id: number): WikiText | undefined {
-		const wikiText: WikiText = {
+	parseMediaWikiActionApiResponse(json: any, id: number): MediaWikiActionApiResponse | undefined {
+		const parsedMediaWikiActionApiResponse: MediaWikiActionApiResponse = {
 			fullText: json.query.pages[id.toString()].extract
         };
-        return wikiText;
+        return parsedMediaWikiActionApiResponse;
 	}
 
-	async getWikimediaData(title: string): Promise<WikimediaData | undefined> {
+	async getWikimediaApiResponse(title: string): Promise<WikimediaApiResponse | undefined> {
 		const url = this.getWikimediaApiUrl() + encodeURIComponent(title);
 		const requestParam: RequestUrlParam = {
 			url: url,
@@ -219,11 +214,11 @@ export default class WikipediaData extends Plugin {
 					"Failed to reach Wikimedia API for article data. Check your search term, internet connection, or language prefix."
 					)
 			);
-		const wikimediaData = this.parseDataResponse(resp);
-		return wikimediaData;
+		const wikimediaApiResponse = this.parseWikimediaApiResponse(resp);
+		return wikimediaApiResponse;
 	}
 
-	async getWikiSearch(searchTerm: string): Promise<WikiSearch | undefined> {
+	async getMediaWikiApiResponse(searchTerm: string): Promise<MediaWikiApiResponse | undefined> {
 		const url = this.getMediaWikiApiUrl() + encodeURIComponent(searchTerm) + "&limit=5";
 		const requestParam: RequestUrlParam = {
 			url: url,
@@ -236,11 +231,11 @@ export default class WikipediaData extends Plugin {
 					"Failed to reach MediaWiki API for article title. Check your search term, internet connection, or language prefix."
 					)
 			);
-		const wikiSearch = this.parseSearchResponse(resp);
-		return wikiSearch;
+		const mediaWikiApiResponse = this.parseMediaWikiApiResponse(resp);
+		return mediaWikiApiResponse;
 	}
 
-	async getWikiText(id: number): Promise<WikiText | undefined> {
+	async getMediaWikiActionApiResponse(id: number): Promise<MediaWikiActionApiResponse | undefined> {
 		const url = this.getMediaWikiActionApiUrl() + encodeURIComponent(id.toString());
 		const requestParam: RequestUrlParam = {
 			url: url,
@@ -253,29 +248,29 @@ export default class WikipediaData extends Plugin {
 					"Failed to reach MediaWiki Action API for article text. Check your search term, internet connection, or language prefix."
 					)
 			);
-		const wikiText = this.parseTextResponse(resp, id);
-		return wikiText;
+		const mediaWikiActionApiResponse = this.parseMediaWikiActionApiResponse(resp, id);
+		return mediaWikiActionApiResponse;
 	}
 
 	async pasteIntoEditor(editor: Editor, searchTerm: string, wikipediaTemplateNum: number) {
 		// TODO: Fix typing here that needs as WikiSearch and as WikimediaData.
-		let wikiSearch: WikiSearch = await this.getWikiSearch(searchTerm) as WikiSearch;
-        let wikimediaData: WikimediaData = await this.getWikimediaData(wikiSearch.title) as WikimediaData;
-        let wikiText: WikiText = await this.getWikiText(wikiSearch.id) as WikiText;
-		if (!wikiSearch) {
+		let mediaWikiApiResponse: MediaWikiApiResponse = await this.getMediaWikiApiResponse(searchTerm) as MediaWikiApiResponse;
+        let wikimediaApiResponse: WikimediaApiResponse = await this.getWikimediaApiResponse(mediaWikiApiResponse.title) as WikimediaApiResponse;
+        let mediaWikiActionApiResponse: MediaWikiActionApiResponse = await this.getMediaWikiActionApiResponse(mediaWikiApiResponse.id) as MediaWikiActionApiResponse;
+		if (!mediaWikiApiResponse) {
 			this.handleNotFound(searchTerm);
 			return;
 		}
-		else if (wikimediaData.type.contains("missingtitle") || wikiSearch.resultCount == 0 ) {
+		else if (wikimediaApiResponse.type.contains("missingtitle") || mediaWikiApiResponse.resultCount == 0 ) {
 			this.handleNotFound(searchTerm);
 			return;
 		}
-		else if (wikimediaData.type == "disambiguation" || wikiSearch.description == "Topics referred to by the same term") {
-			this.handleDisambiguation(searchTerm, wikimediaData.url);
+		else if (wikimediaApiResponse.type == "disambiguation" || mediaWikiApiResponse.description == "Topics referred to by the same term") {
+			this.handleDisambiguation(searchTerm, wikimediaApiResponse.url);
 			return;
 		}
 		else {
-			editor.replaceSelection(this.formatTemplate(wikiSearch, wikimediaData, wikiText, searchTerm, wikipediaTemplateNum));
+			editor.replaceSelection(this.formatTemplate(mediaWikiApiResponse, wikimediaApiResponse, mediaWikiActionApiResponse, searchTerm, wikipediaTemplateNum));
 		}
 	}
 
