@@ -37,17 +37,17 @@ Note named Woozle Effect and default template #2 with `introText` template varia
 `{{thumbnailTemplate}}` - Inserts the Wikipedia 'Thumbnail template' defined below.  
 `{{thumbnailUrl}}` - Inserts the url of the article's thumbnail image (if it has one). (Normally one would only use this variable inside the 'Thumbnail template' below, but   you can use it directly in the 'Wikipedia templates' as well.)  
 ## Development Rationale
-This plugin was inspired by and based on the very useful [obsidian-wikipedia](https://github.com/jmilldotdev/obsidian-wikipedia) plugin. I also got some ideas from the [obsidian-wikipedia-search](https://github.com/StrangeGirlMurph/obsidian-wikipedia-search) plugin. However, I wanted some additional customizations. For example, I wanted more data and options to use in a custom template (such as an image thumbnail), multiple templates for different situations, and a better short to medium length summary of the article. I also determined that using [WikiMedia's REST API](https://en.wikipedia.org/api/rest_v1/) has some advantages over the [MediaWiki API](https://www.mediawiki.org/wiki/API:Main_page) that both of those plugins use. Most notably, WikiMedia's API can return an article "summary" that is consistently formatted and never more than a paragraph. It's a good middle ground between the shorter "description" and often much longer introductory text "extracts" which can sometimes take up over a page. Further, the obsidian-wikipedia plugin suffers from the occassional omission of line breaks discussed [here](https://phabricator.wikimedia.org/T201946), making those summaries sometimes difficult to read and integrate into your note's consistently. I also wanted a clear use case to help me learn how to make my first Obsidian plugin.
-In the end, I ended up utilizing 3 API's to get all the customizations I wanted:
+This plugin was inspired by and based on the very useful [obsidian-wikipedia](https://github.com/jmilldotdev/obsidian-wikipedia) plugin. I also got some ideas from the [obsidian-wikipedia-search](https://github.com/StrangeGirlMurph/obsidian-wikipedia-search) plugin. However, I wanted some additional customizations. For example, I wanted more data and options to use in a custom template (such as an image thumbnail), multiple templates for different situations, and a better short to medium length summary of the article. I also determined that using [WikiMedia's REST API](https://en.wikipedia.org/api/rest_v1/) has some advantages over the [MediaWiki API](https://www.mediawiki.org/wiki/API:Main_page) that both of those plugins use. Most notably, WikiMedia's API can return an article "summary" that is consistently formatted and never more than a paragraph. It's a good middle ground between the shorter "description" and often much longer introductory text "extracts" which can sometimes take up over a page. Further, the obsidian-wikipedia plugin suffers from the occassional omission of line breaks due to MediaWiki's API [bug](https://phabricator.wikimedia.org/T201946), making those summaries sometimes difficult to read and integrate into your note's consistently. I also wanted a clear practical use case to help me learn how to make my first Obsidian plugin.
+In the end, I ended up utilizing 3 API's to get all the customizations I wanted:  
 - [WikiMedia's REST API](https://en.wikipedia.org/api/rest_v1/)
 - [MediaWiki's REST API](https://www.mediawiki.org/wiki/API:REST_API)
 - [MediaWiki's Action API](https://www.mediawiki.org/wiki/API:Main_page)
 ## Installation
 ### GitHub
-- Download directly from 
-### Option 1: NPM Script Method
+- Download directly from [evanharmon1/obsidian-wikipedia-data](https://github.com/evanharmon1/obsidian-wikipedia-data).
+#### Option 1: NPM Script Method
 - Set an environment variable named `obsidianVault` to your vault's path and run `npm run installPlugin` from the repo's directory.
-### Option 2: Manual Method
+#### Option 2: Manual Method
 - From the repo, run `npm run build` to generate `main.js` and `manifest.json` files.
 - Create a directory in your vault's `.obsidian/plugins` folder called `obsidian-wikipedia-data`.
 - Copy the generated `main.js` and `manifest.json` files from the repo to the newly created `obsidian-wikipedia-data` folder in your vault.
