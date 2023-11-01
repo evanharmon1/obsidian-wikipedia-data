@@ -14,7 +14,7 @@ Note named Woozle Effect and default template #2 with `introText` template varia
 1. Put your cursor where you want the template to be inserted in your note.
 2. Run the "Apply Template #1 for Active Note Title" command to insert the template to your note.
 - The plugin gets data from Wikipedia based on the active note's title.
-- You can customize the template in the plugin's settings to change the format and variables you want from the Wikipedia API.
+- You can customize the template in the plugin's settings to change the format and variables you want from Wikipedia.
 ## Commands
 - Adds command "Apply Template #1 for Active Note Title" which queries Wikipedia and inserts data based on the templates defined in settings.
 - Adds 2 duplicates of above command to allow for customizing multiple templates instead of being limited to one template for all situations.
@@ -43,15 +43,24 @@ In the end, I ended up utilizing 3 API's to get all the customizations I wanted:
 - [MediaWiki's REST API](https://www.mediawiki.org/wiki/API:REST_API)
 - [MediaWiki's Action API](https://www.mediawiki.org/wiki/API:Main_page)
 ## Installation
+### Obsidian BRAT Plugin for Beta Testing
+[Obsidian BRAT Plugin](https://tfthacker.com/BRAT)
+1. Install the BRAT plugin: `obsidian://show-plugin?id=obsidian42-brat` and enable it.
+2. Copy this repo's URL: `https://github.com/evanharmon1/obsidian-wikipedia-data`.
+3. Run the Obsidian command, 'Add a beta plugin for testing', and copy this repo's url to the prompt.
+- That should add the latest beta version of this plugin to your list of installed community plugins as normal.
+- You can enable BRAT settings like auto updates and notificaitons so you can easily get the latest beta version of this plugin.
 ### GitHub
-- Download directly from [evanharmon1/obsidian-wikipedia-data](https://github.com/evanharmon1/obsidian-wikipedia-data).
+1. Download directly from [evanharmon1/obsidian-wikipedia-data](https://github.com/evanharmon1/obsidian-wikipedia-data).
 #### Option 1: NPM Script Method
-- Set an environment variable named `obsidianVault` to your vault's path and run `npm run installPlugin` from the repo's directory.
+1. Set an environment variable named `obsidianVault` to your vault's path.
+    - E.g, on a Mac it would resemble: `/Users/evan/myObsidianVaultFolder`.
+2. run `npm run installPlugin` from the repo's directory, which should build the plugin and copy all the needed files to your Obsidian vault.
 #### Option 2: Manual Method
-- From the repo, run `npm run build` to generate `main.js` and `manifest.json` files.
-- Create a directory in your vault's `.obsidian/plugins` folder called `obsidian-wikipedia-data`.
-- Copy the generated `main.js` and `manifest.json` files from the repo to the newly created `obsidian-wikipedia-data` folder in your vault.
-- Enable the plugin in Obsidian settings.
+1. From the repo, run `npm run build` to generate `main.js` and `manifest.json` files.
+2. Create a directory in your vault's `.obsidian/plugins` folder called `obsidian-wikipedia-data`.
+3. Copy the generated `main.js` and `manifest.json` files from the repo to the newly created `obsidian-wikipedia-data` folder in your vault.
+4. Enable the plugin in Obsidian settings.
 ## Bug Reports, Feature Requests, & Pull Requests
 All are welcome and I'll do what I can to respond.
 ## Disclaimer
@@ -61,3 +70,5 @@ All are welcome and I'll do what I can to respond.
 - [ ] Add option to query based on selected text instead of note title.
 - [ ] Add a UI modal to enter a search term and select an article via UI.
 - [ ] Add a UI modal that allows the user to pick a specific article when a disambiguation page is returned.
+- [ ] Add Ribbon buttons.
+- [ ] Add icons for ribbon buttons and mobile commands.

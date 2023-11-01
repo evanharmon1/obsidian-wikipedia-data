@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-wikipedia-data",
 	"name": "Wikipedia Data - Beta",
-	"version": "1.0.0-beta.1",
+	"version": "1.0.0-beta.2",
 	"minAppVersion": "0.15.0",
 	"description": "Query Wikipedia APIs and automatically insert data to your notes with custom templates.",
 	"author": "Evan Harmon",

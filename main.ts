@@ -46,14 +46,14 @@ const defaultWikipediaTemplateOne: WikipediaTemplate = {
 	key: 1,
 	name: "Wikipedia template #1",
 	description: `Set the template to be inserted with the main command - 'Apply Template #1 for Active Note Title'.`,
-	value: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n| | wikipedia:: [{{title}}]({{url}}) |\n> [!summary]- Wikipedia Synopsis\n{{introText}}\n`
+	value: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n| | wikipedia:: [{{title}}]({{url}}) |\n`
 }
 
 const defaultWikipediaTemplateTwo: WikipediaTemplate = {
 	key: 2,
 	name: "Wikipedia template #2",
 	description: `Set the template to be inserted with the second command - 'Apply Template #2 for Active Note Title'.`,
-	value: `| {{thumbnailTemplate}} | {{summary}} |\n|-|-|\n| | wikipedia:: [{{title}}]({{url}}) |\n> [!summary]- Wikipedia Synopsis\n{{introText}}\n`
+	value: `> [!summary]- Wikipedia Synopsis\n{{introText}}\n`
 }
 
 const defaultWikipediaTemplateThree: WikipediaTemplate = {
