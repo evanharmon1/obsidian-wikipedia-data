@@ -98,10 +98,10 @@ export default class WikipediaData extends Plugin {
 	handleDisambiguation(searchTerm: string, disambiguationUrl: string) {
 		// TODO: Use Obsidian DOM API instead of innerHTML?
 		// Create DOM element to put a URL in the Obisidan Notice for the user to be able to open that Wikipedia disambiguation page.
-		let linkElement = document.createElement("a");
+		const linkElement = document.createElement("a");
 		linkElement.innerHTML = `${searchTerm} Disambiguation Page\n`;
 		linkElement.href = `${disambiguationUrl}`;
-		let fragment = new DocumentFragment;
+		const fragment = new DocumentFragment;
 		fragment.appendChild(linkElement);
 		new Notice(`${searchTerm} returned a disambiguation page.`, 10000)
 		new Notice(fragment, 10000);
@@ -121,7 +121,7 @@ export default class WikipediaData extends Plugin {
 	// Split WikiText.fullText into paragraphs, extract just the intro section, and apply paragraphTemplate to each paragraph.
 	formatMediaWikiActionApiIntroText(mediaWikiActionApiResponse: MediaWikiActionApiResponse, searchTerm: string): string {
 		const text = mediaWikiActionApiResponse.fullText;
-		let formattedText: string = "";
+		let formattedText = "";
 		if (this.settings.useParagraphTemplate) {
 			const split = text.split("==")[0].trim().split("\n");
 			formattedText = split
@@ -182,7 +182,7 @@ export default class WikipediaData extends Plugin {
         return parsedWikimediaApiResponse;
 	}
 
-	parseMediaWikiApiResponse(json: any): MediaWikiApiResponse | undefined {;
+	parseMediaWikiApiResponse(json: any): MediaWikiApiResponse | undefined {
 		const parsedMediaWikiApiResponse: MediaWikiApiResponse = {
 			resultCount: json.pages.length,
 			id: json.pages[0].id,
@@ -253,10 +253,10 @@ export default class WikipediaData extends Plugin {
 	}
 
 	async pasteIntoEditor(editor: Editor, searchTerm: string, wikipediaTemplateNum: number) {
-		// TODO: Fix typing here that needs as WikiSearch and as WikimediaData.
-		let mediaWikiApiResponse: MediaWikiApiResponse = await this.getMediaWikiApiResponse(searchTerm) as MediaWikiApiResponse;
-        let wikimediaApiResponse: WikimediaApiResponse = await this.getWikimediaApiResponse(mediaWikiApiResponse.title) as WikimediaApiResponse;
-        let mediaWikiActionApiResponse: MediaWikiActionApiResponse = await this.getMediaWikiActionApiResponse(mediaWikiApiResponse.id) as MediaWikiActionApiResponse;
+		// TODO: Fix typing here that needs as WikiSearch and as WikimediaData?
+		const mediaWikiApiResponse: MediaWikiApiResponse = await this.getMediaWikiApiResponse(searchTerm) as MediaWikiApiResponse;
+        const wikimediaApiResponse: WikimediaApiResponse = await this.getWikimediaApiResponse(mediaWikiApiResponse.title) as WikimediaApiResponse;
+        const mediaWikiActionApiResponse: MediaWikiActionApiResponse = await this.getMediaWikiActionApiResponse(mediaWikiApiResponse.id) as MediaWikiActionApiResponse;
 		if (!mediaWikiApiResponse) {
 			this.handleNotFound(searchTerm);
 			return;

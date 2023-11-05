@@ -6,5 +6,9 @@
 	"description": "Query Wikipedia APIs and automatically insert data to your notes with custom templates.",
 	"author": "Evan Harmon",
 	"authorUrl": "https://www.evanharmon.com",
-	"isDesktopOnly": false
+	"isDesktopOnly": false,
+	"fundingUrl": {
+        "GitHub Sponsor": "https://github.com/sponsors/evanharmon1",
+        "Buy Me a Coffee": "https://www.buymeacoffee.com/app/dashboard"
+    }
 }
