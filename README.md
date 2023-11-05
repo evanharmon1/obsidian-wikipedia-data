@@ -64,11 +64,4 @@ In the end, I ended up utilizing 3 API's to get all the customizations I wanted:
 ## Bug Reports, Feature Requests, & Pull Requests
 All are welcome and I'll do what I can to respond.
 ## Disclaimer
-- Use at your own risk. Not heavily tested to ensure no data loss, etc. Make sure you have adequate backups.
-## Potential Future Features
-- [ ] Handle non-exact article titles better. As it is, your Obsidian note has to have a title that the API can resolve to a specific Wikipedia article.
-- [ ] Add option to query based on selected text instead of note title.
-- [ ] Add a UI modal to enter a search term and select an article via UI.
-- [ ] Add a UI modal that allows the user to pick a specific article when a disambiguation page is returned.
-- [ ] Add Ribbon buttons.
-- [ ] Add icons for ribbon buttons and mobile commands.
+Use at your own risk. Not heavily tested to ensure no data loss, etc. Make sure you have adequate backups.
