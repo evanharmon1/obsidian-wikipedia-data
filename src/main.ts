@@ -30,6 +30,52 @@ const mediaWikiActionApiUrlBase = "wikipedia.org/w/api.php";
 export default class WikipediaData extends Plugin {
 	settings: WikipediaDataSettings;
 
+	async onload() {
+		console.log("Loading Wikipedia Data Plugin");
+		await this.loadSettings();
+
+		this.addCommand({
+			id: "apply-template-one-for-active-note",
+			name: "Apply Template #1 for Active Note Title",
+			editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 1),
+		});
+
+		this.addCommand({
+			id: "apply-template-two-for-active-note",
+			name: "Apply Template #2 for Active Note Title",
+			editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 2),
+		});
+
+		this.addCommand({
+			id: "apply-template-three-for-active-note",
+			name: "Apply Template #3 for Active Note Title",
+			editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 3),
+		});
+
+		this.addRibbonIcon(
+			'glasses', 'Wikipedia Data: Apply Template #1 for Active Note Title', (evt: MouseEvent) => {
+			const editor = this.app.workspace.activeEditor?.editor;
+			this.applyTemplateForActiveNote(editor as Editor, 1)
+		});
+
+		this.addRibbonIcon(
+			'heading-2', 'Wikipedia Data: Apply Template #2 for Active Note Title', (evt: MouseEvent) => {
+			const editor = this.app.workspace.activeEditor?.editor;
+			this.applyTemplateForActiveNote(editor as Editor, 2)
+		});
+
+		this.addRibbonIcon(
+			'heading-3', 'Wikipedia Data: Apply Template #3 for Active Note Title', (evt: MouseEvent) => {
+			const editor = this.app.workspace.activeEditor?.editor;
+			this.applyTemplateForActiveNote(editor as Editor, 3)
+		});
+
+
+		this.addSettingTab(new WikipediaDataSettingTab(this.app, this));
+	}
+	
+	onunload() {}
+
 	getLanguage(): string {
 		return this.settings.language ? this.settings.language : "en";
 	}
@@ -266,31 +312,6 @@ export default class WikipediaData extends Plugin {
 		}
 	}
 
-	async onload() {
-		console.log("Loading Wikipedia Data Plugin");
-		await this.loadSettings();
-
-		this.addCommand({
-			id: "apply-template-one-for-active-note",
-			name: "Apply Template #1 for Active Note Title",
-			editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 1),
-		});
-
-		this.addCommand({
-			id: "apply-template-two-for-active-note",
-			name: "Apply Template #2 for Active Note Title",
-			editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 2),
-		});
-
-		this.addCommand({
-			id: "apply-template-three-for-active-note",
-			name: "Apply Template #3 for Active Note Title",
-			editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 3),
-		});
-
-		this.addSettingTab(new WikipediaDataSettingTab(this.app, this));
-	}
-
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -299,5 +320,4 @@ export default class WikipediaData extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	onunload() {}
 }
