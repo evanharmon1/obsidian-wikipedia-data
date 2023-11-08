@@ -1,5 +1,6 @@
-import { Editor, Notice, Plugin, RequestUrlParam, request } from "obsidian";
+import { Editor, Notice, Plugin, RequestUrlParam, request, addIcon } from "obsidian";
 import { WikipediaDataSettings, DEFAULT_SETTINGS, WikipediaDataSettingTab } from "./settings";
+import { wikipediaIcon } from "./wikipediaIcon";
 
 interface WikimediaApiResponse {
 	type: string;
@@ -52,8 +53,10 @@ export default class WikipediaData extends Plugin {
 			editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 3),
 		});
 
+		addIcon("wikipedia", wikipediaIcon);
+
 		this.addRibbonIcon(
-			'glasses', 'Wikipedia Data: Apply Template #1 for Active Note Title', (evt: MouseEvent) => {
+			'wikipedia', 'Wikipedia Data: Apply Template #1 for Active Note Title', (evt: MouseEvent) => {
 			const editor = this.app.workspace.activeEditor?.editor;
 			this.applyTemplateForActiveNote(editor as Editor, 1)
 		});
