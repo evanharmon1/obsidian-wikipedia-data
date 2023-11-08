@@ -1,6 +1,6 @@
 import { Editor, Notice, Plugin, RequestUrlParam, request, addIcon } from "obsidian";
 import { WikipediaDataSettings, DEFAULT_SETTINGS, WikipediaDataSettingTab } from "./settings";
-import { wikipediaIcon } from "./wikipediaIcon";
+import { wikipediaIcon1, wikipediaIcon2, wikipediaIcon3 } from "./icons";
 
 interface WikimediaApiResponse {
 	type: string;
@@ -53,22 +53,24 @@ export default class WikipediaData extends Plugin {
 			editorCallback: (editor: Editor) => this.applyTemplateForActiveNote(editor, 3),
 		});
 
-		addIcon("wikipedia", wikipediaIcon);
+		addIcon("wikipedia1", wikipediaIcon1);
+		addIcon("wikipedia2", wikipediaIcon2);
+		addIcon("wikipedia3", wikipediaIcon3);
 
 		this.addRibbonIcon(
-			'wikipedia', 'Wikipedia Data: Apply Template #1 for Active Note Title', (evt: MouseEvent) => {
+			'wikipedia1', 'Wikipedia Data: Apply Template #1 for Active Note Title', (evt: MouseEvent) => {
 			const editor = this.app.workspace.activeEditor?.editor;
 			this.applyTemplateForActiveNote(editor as Editor, 1)
 		});
 
 		this.addRibbonIcon(
-			'heading-2', 'Wikipedia Data: Apply Template #2 for Active Note Title', (evt: MouseEvent) => {
+			'wikipedia2', 'Wikipedia Data: Apply Template #2 for Active Note Title', (evt: MouseEvent) => {
 			const editor = this.app.workspace.activeEditor?.editor;
 			this.applyTemplateForActiveNote(editor as Editor, 2)
 		});
 
 		this.addRibbonIcon(
-			'heading-3', 'Wikipedia Data: Apply Template #3 for Active Note Title', (evt: MouseEvent) => {
+			'wikipedia3', 'Wikipedia Data: Apply Template #3 for Active Note Title', (evt: MouseEvent) => {
 			const editor = this.app.workspace.activeEditor?.editor;
 			this.applyTemplateForActiveNote(editor as Editor, 3)
 		});
