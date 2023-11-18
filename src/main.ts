@@ -1,4 +1,4 @@
-import { Editor, Notice, Plugin, RequestUrlParam, request, addIcon } from "obsidian";
+import { Editor, Notice, Plugin, RequestUrlParam, request, addIcon, sanitizeHTMLToDom } from "obsidian";
 import { WikipediaDataSettings, DEFAULT_SETTINGS, WikipediaDataSettingTab } from "./settings";
 import { wikipediaIcon1, wikipediaIcon2, wikipediaIcon3 } from "./icons";
 
@@ -106,14 +106,14 @@ export default class WikipediaData extends Plugin {
 	}
 
 	handleDisambiguation(searchTerm: string, disambiguationUrl: string) {
-		// TODO: Use Obsidian DOM API instead of innerHTML?
+		// TODO: Sanitize user input - searchTerm? I couldn't get the sanitizeHTMLToDom method to work - couldn't get the resulting text. Maybe the fragment's setText method sanitizes automatically?
 		// Create DOM element to put a URL in the Obisidan Notice for the user to be able to open that Wikipedia disambiguation page.
-		const linkElement = document.createElement("a");
-		linkElement.innerHTML = `${searchTerm} Disambiguation Page\n`;
-		linkElement.href = `${disambiguationUrl}`;
 		const fragment = new DocumentFragment();
-		fragment.appendChild(linkElement);
-		new Notice(`${searchTerm} returned a disambiguation page.`, 10000);
+		const message = fragment.createEl("div");
+		message.setText(`"${searchTerm}" returned a disambiguation page.`);
+		const linkElement = fragment.createEl("a");
+		linkElement.setText(`${searchTerm} disambiguation page\n`);
+		linkElement.setAttr("href", `${disambiguationUrl}`);
 		new Notice(fragment, 10000);
 	}
 
